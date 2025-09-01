@@ -99,7 +99,7 @@ def scan_website(url: str, max_pages=1, max_depth=1, sleep_time=1.0, timeout=10)
     combined_text = " ".join(all_texts)
     return combined_text, len(visited)
 
-def keyword_score(text: str, keywords: set, peso_diversity, peso_frequenza) -> float:
+def keyword_score(text: str, keywords: set) -> float:
    if not text:
        return 0.0
    
@@ -121,8 +121,8 @@ def keyword_score(text: str, keywords: set, peso_diversity, peso_frequenza) -> f
    capped_hits = sum(min(c, 3) for c in counts.values())
    frequency_score = 1.0 - math.exp(-capped_hits/8.0)
    
-   # Combina diversità + frequenza
-   return peso_diversity * diversity_score + peso_frequenza * frequency_score
+   # Combina 60% diversità + 40% frequenza
+   return 0.6 * diversity_score + 0.4 * frequency_score
 
 
 def keyword_matches(text: str, keywords) -> dict:
@@ -139,9 +139,9 @@ def keyword_matches(text: str, keywords) -> dict:
         counts[k] = len(re.findall(patt, t))
     return counts
 
-# def keyword_score_from_counts(counts: dict) -> float:
-#     hits = sum(counts.values())
-#     return 1.0 - math.exp(-hits/5.0)
+def keyword_score_from_counts(counts: dict) -> float:
+    hits = sum(counts.values())
+    return 1.0 - math.exp(-hits/5.0)
     
 
 def semantic_score(text: str, topic_phrases, model) -> float:
@@ -151,13 +151,13 @@ def semantic_score(text: str, topic_phrases, model) -> float:
     sims = vecs[1:] @ vecs[0]
     return float(np.max(sims))
 
-def classify_url(url: str, keywords, model, alpha_sem=0.7, alpha_kw=0.3, alpha_div=0.6, alpha_fre=0.4, max_pages=1, max_depth=1, sleep_time=1.0):
+def classify_url(url: str, keywords, model, alpha_sem=0.7, alpha_kw=0.3, max_pages=1, max_depth=1, sleep_time=1.0):
     # Scansiona il sito web
     text, pages_scanned = scan_website(url.strip(), max_pages, max_depth, sleep_time)
     
     # conteggi e score keyword
     kmatch = keyword_matches(text, keywords)
-    kscore = keyword_score(text, keywords, peso_diversity=alpha_div, peso_frequenza=alpha_fre)
+    kscore = keyword_score_from_counts(kmatch)
 
     # embedding score
     sscore = semantic_score(text, list(keywords), model)
@@ -199,67 +199,41 @@ def main():
     st.image("img/logo.png")
 
     st.markdown("""
-        Il tool consente di scansionare un elenco di <strong>URL di siti internet</strong> ed effettuare un'analisi dei contenuti per ricerca di <strong>parole chiave</strong>, valutando la <strong>similarità semantica</strong>
-        rispetto ad una lista di keyword fornite.<br>""", unsafe_allow_html=True)
+        Scansione di un elenco di URL di siti internet e analisi dei contenuti per ricerca di <strong>parole chiave</strong> e valutazione della <strong>similarità semantica</strong>
+        rispetto a una lista di keyword fornite.<br>
+               
+        Per il corretto funzionamento del tool, l'utente deve caricare un <i>file excel</i> (.xlsx) che rispetti la struttura del template (scaricabile in basso).
+        In particolare il file in input deve essere composto da due fogli:
+        <ul>
+            <li><strong>websites</strong>: elenco di URL da analizzare</li>
+            <li><strong>keywords</strong>: elenco di parole chiave da ricercare</li>
+        </ul>
+        Il tool esegue il download del contenuto testuale di ogni URL e calcola due score:
+        <ul>
+            <li><strong>keyword_score</strong>: combina diversità (60%) e frequenza (40%) delle keyword trovate. Premia siti che contengono molte keyword diverse piuttosto che ripetizioni della stessa parola. Range: 0-1</li>
+            <li><strong>semantic_score</strong>: utilizza AI embeddings per misurare quanto il contenuto del sito sia semanticamente correlato alle keyword, anche senza match esatti. Range: 0-1</li>
+        </ul>
+        I due score sono combinati in un <strong>final_score</strong> pesato che rappresenta il risultato finale.<br>
+        L'utente può regolare il peso dei due score e i parametri di scansione (solo homepage o più pagine del sito web) tramite il pannello <i>"⚙️ Opzioni"</i>.<br><br>
 
-    with st.expander("ℹ️ Come funziona", expanded=False):
-        st.markdown("""               
-            Per il corretto funzionamento del tool, l'utente deve caricare un <i>file excel</i> (.xlsx) che rispetti la struttura del template (scaricabile in basso).
-            In particolare il file in input deve essere composto da due fogli:
-            <ul>
-                <li><strong>websites</strong>: elenco di URL da analizzare</li>
-                <li><strong>keywords</strong>: elenco di parole chiave da ricercare</li>
-            </ul>
-            Il tool esegue il download del contenuto testuale di ogni URL e calcola due score:
-            <ul>
-                <li><strong>keyword_score</strong>: combina diversità e frequenza delle keyword trovate. Premia siti che contengono molte keyword diverse piuttosto che ripetizioni della stessa parola. Range: 0-1</li>
-                <li><strong>semantic_score</strong>: utilizza AI embeddings per misurare quanto il contenuto del sito sia semanticamente correlato alle keyword, anche senza match esatti. Range: 0-1</li>
-            </ul>
-            I due score sono combinati in un <strong>final_score</strong> pesato che rappresenta il risultato finale.<br>
-            L'utente può regolare il peso dei due score e i parametri di scansione (solo homepage o più pagine del sito web) tramite il pannello <i>"⚙️ Opzioni"</i>.<br><br>
+        I risultati sono esportabili in formato Excel (xlsx).<br>
+                   
+"""
+               , unsafe_allow_html=True)
 
-            I risultati sono esportabili in formato Excel (xlsx).<br>
-                    
-    """
-                , unsafe_allow_html=True)
-
-        st.warning(
-        "**Nota operativa**\n\n"
-        "- Il sistema è stato testato con file contenenti fino a **5.000 siti**, limitando la scansione alla sola homepage di ciascun dominio.\n"
-        "- Per liste di grandi dimensioni è consigliabile suddividere gli URL in più file, così da ridurre i tempi di elaborazione e minimizzare il rischio di dover ripetere l’analisi in caso di interruzioni.\n"
-        "- Le prestazioni dipendono da fattori esterni (rete, CPU, risposta dei server). Alcuni provider possono applicare **rate-limit** o blocchi temporanei, causando rallentamenti o stop dell’elaborazione.\n"
-                    , icon="🚨"
-    )
+    st.warning(
+    "**Nota operativa**\n\n"
+    "- Il sistema è stato testato con file contenenti fino a **5.000 siti**, limitando la scansione alla sola homepage di ciascun dominio.\n"
+    "- Per liste di grandi dimensioni è consigliabile suddividere gli URL in più file, così da ridurre i tempi di elaborazione e minimizzare il rischio di dover ripetere l’analisi in caso di interruzioni.\n"
+    "- Le prestazioni dipendono da fattori esterni (rete, CPU, risposta dei server). Alcuni provider possono applicare **rate-limit** o blocchi temporanei, causando rallentamenti o stop dell’elaborazione.\n"
+                , icon="🚨"
+)
     
     # Inizializza session state
     if 'analysis_completed' not in st.session_state:
         st.session_state.analysis_completed = False
     if 'df_results' not in st.session_state:
         st.session_state.df_results = None
-
-    with st.sidebar:
-        st.header("⚙️ Opzioni")
-
-        with st.expander("🌐 Parametri di scansione", expanded=False):
-            st.caption("Regola il comportamento della scansione dei siti web (numero di pagine, profondità, delay tra richieste)")
-            deep_scan = st.checkbox("Scansiona l'intero sito web (non solo homepage)", value=False)
-            max_pages = st.slider("Numero massimo di pagine per sito", 1, 50, 5, 1, disabled=not deep_scan)
-            max_depth = st.slider("Profondità massima nell'alberatura", 1, 5, 2, 1, disabled=not deep_scan)
-            sleep_time = st.slider("Delay tra pagine (secondi)", 0.5, 5.0, 1.0, 0.5, disabled=not deep_scan)
-
-        with st.expander("🧮 Pesi del keyword score", expanded=False):
-            st.caption("Regola i pesi di diversità e frequenza per la definizione dello score delle keyword")
-            alpha_div = st.slider("Peso diversità", 0.0, 1.0, 0.6, 0.05)
-            alpha_fre = st.slider("Peso frequenza", 0.0, 1.0, 1.0 - alpha_div, 0.05, disabled=True)
-        
-        with st.expander("⚖️ Pesi del final score", expanded=False):
-            st.caption("Regola il peso relativo tra similarità semantica e presenza keyword per la definizione dello score finale")
-            alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.7, 0.05)
-            alpha_kw = st.slider("Peso presenza keyword", 0.0, 1.0, 1.0 - alpha_sem, 0.05, disabled=True)
-
-        if not deep_scan:
-            max_pages = 1
-            max_depth = 1
 
     with st.expander("📂 Carica il file", expanded=True):
         uploaded_file = st.file_uploader("Carica il file con elenco dei siti web e lista di keyword da analizzare", type=["xlsx"])
@@ -279,24 +253,24 @@ def main():
         keywords = {k.lower() for k in df_keywords['keywords'].to_list()}
         st.success(f"✅ File '{uploaded_file.name}' caricato con successo!")
 
-        # with st.expander("⚙️ Opzioni", expanded=False):
-        #     col1, col2 = st.columns(2)
+        with st.expander("⚙️ Opzioni", expanded=False):
+            col1, col2 = st.columns(2)
             
-        #     with col1:
-        #         st.subheader("Peso degli score")
-        #         alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.7, 0.05)
-        #         alpha_kw = st.slider("Peso presenza keyword", 0.0, 1.0, 1.0 - alpha_sem, 0.05, disabled=True)
+            with col1:
+                st.subheader("Peso degli score")
+                alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.7, 0.05)
+                alpha_kw = st.slider("Peso presenza keyword", 0.0, 1.0, 1.0 - alpha_sem, 0.05, disabled=True)
             
-        #     with col2:
-        #         st.subheader("Scansione siti web")
-        #         deep_scan = st.checkbox("Scansiona l'intero sito web (non solo homepage)", value=False)
-        #         max_pages = st.slider("Numero massimo di pagine per sito", 1, 50, 5, 1, disabled=not deep_scan)
-        #         max_depth = st.slider("Profondità massima nell'alberatura", 1, 5, 2, 1, disabled=not deep_scan)
-        #         sleep_time = st.slider("Delay tra pagine (secondi)", 0.5, 5.0, 1.0, 0.5, disabled=not deep_scan)
+            with col2:
+                st.subheader("Scansione siti web")
+                deep_scan = st.checkbox("Scansiona l'intero sito web (non solo homepage)", value=False)
+                max_pages = st.slider("Numero massimo di pagine per sito", 1, 50, 5, 1, disabled=not deep_scan)
+                max_depth = st.slider("Profondità massima nell'alberatura", 1, 5, 2, 1, disabled=not deep_scan)
+                sleep_time = st.slider("Delay tra pagine (secondi)", 0.5, 5.0, 1.0, 0.5, disabled=not deep_scan)
             
-        #     if not deep_scan:
-        #         max_pages = 1
-        #         max_depth = 1
+            if not deep_scan:
+                max_pages = 1
+                max_depth = 1
 
         if st.button("▶️ Avvia l'analisi"):
             st.info("⏳ Analisi in corso...")
@@ -316,9 +290,8 @@ def main():
 
             for pos, (idx, row) in enumerate(df_url.iterrows(), start=1):
                 url = row["url"]
-                res = classify_url(url, keywords, model, alpha_sem=alpha_sem, alpha_kw=alpha_kw,
-                                   alpha_div=alpha_div, alpha_fre=alpha_fre,
-                                   max_pages=max_pages, max_depth=max_depth, sleep_time=sleep_time)
+                res = classify_url(url, keywords, model, alpha_sem=alpha_sem, alpha_kw=alpha_kw, 
+                                 max_pages=max_pages, max_depth=max_depth, sleep_time=sleep_time)
 
                 # aggiorna df
                 for k, v in res.items():
