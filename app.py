@@ -254,7 +254,7 @@ def main():
         
         with st.expander("⚖️ Pesi del final score", expanded=False):
             st.caption("Regola il peso relativo tra similarità semantica e presenza keyword per la definizione dello score finale")
-            alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.7, 0.05)
+            alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.5, 0.05)
             alpha_kw = st.slider("Peso presenza keyword", 0.0, 1.0, 1.0 - alpha_sem, 0.05, disabled=True)
 
         if not deep_scan:
