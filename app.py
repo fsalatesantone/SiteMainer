@@ -279,24 +279,6 @@ def main():
         keywords = {k.lower() for k in df_keywords['keywords'].to_list()}
         st.success(f"✅ File '{uploaded_file.name}' caricato con successo!")
 
-        # with st.expander("⚙️ Opzioni", expanded=False):
-        #     col1, col2 = st.columns(2)
-            
-        #     with col1:
-        #         st.subheader("Peso degli score")
-        #         alpha_sem = st.slider("Peso similarità semantica", 0.0, 1.0, 0.7, 0.05)
-        #         alpha_kw = st.slider("Peso presenza keyword", 0.0, 1.0, 1.0 - alpha_sem, 0.05, disabled=True)
-            
-        #     with col2:
-        #         st.subheader("Scansione siti web")
-        #         deep_scan = st.checkbox("Scansiona l'intero sito web (non solo homepage)", value=False)
-        #         max_pages = st.slider("Numero massimo di pagine per sito", 1, 50, 5, 1, disabled=not deep_scan)
-        #         max_depth = st.slider("Profondità massima nell'alberatura", 1, 5, 2, 1, disabled=not deep_scan)
-        #         sleep_time = st.slider("Delay tra pagine (secondi)", 0.5, 5.0, 1.0, 0.5, disabled=not deep_scan)
-            
-        #     if not deep_scan:
-        #         max_pages = 1
-        #         max_depth = 1
 
         if st.button("▶️ Avvia l'analisi"):
             st.info("⏳ Analisi in corso...")
