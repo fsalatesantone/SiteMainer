@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore")
+import unicodedata
 
 # Configurazione session di requests con retry
 from requests.adapters import HTTPAdapter
@@ -77,19 +78,12 @@ def fetch_text(url: str, timeout=8) -> str:
             headers=headers,
             allow_redirects=True
         )
-
-        # DEBUG: stampa status e lunghezza HTML
-        print(f"📊 {url} → Status: {r.status_code}, HTML length: {len(r.text)}, Content-Type: {r.headers.get('content-type', 'N/A')}")
         
         if r.status_code >= 400:
             print(f"⚠️ Status {r.status_code} per {url}")
             return ""
             
         soup = BeautifulSoup(r.text, "html.parser")
-        
-        # DEBUG: stampa primi 500 caratteri dell'HTML
-        if len(r.text) < 1000:
-            print(f"⚠️ HTML molto corto per {url}: {r.text[:500]}")
 
         # Rimuove script, style, noscript
         for tag in soup(["script", "style", "noscript"]):
@@ -100,9 +94,6 @@ def fetch_text(url: str, timeout=8) -> str:
             x.get_text(" ", strip=True) 
             for x in soup.find_all(["title", "h1", "h2", "h3", "p", "li"])
         ])
-
-        # DEBUG: lunghezza testo estratto
-        print(f"✂️ Testo estratto da {url}: {len(text)} caratteri")
         
         return re.sub(r"\s+", " ", text)
         
@@ -321,11 +312,23 @@ def classify_url(url: str, keywords, model, alpha_sem=0.7, alpha_kw=0.3,
 
     return base
 
+def clean_excel_string(s):
+    if isinstance(s, str):
+        s = unicodedata.normalize("NFC", s)
+        # rimuove caratteri di controllo non ammessi
+        s = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', s)
+        # rimuove spazi non-breaking
+        s = s.replace('\xa0', ' ')
+        # rimuove caratteri invisibili (zero width, BOM)
+        s = re.sub(r'[\u200B-\u200F\uFEFF]', '', s)
+        return s.strip()
+    return s
 
 def prepare_excel_download(df_results):
     """Prepara il file Excel per il download"""
+    df_clean = df_results.applymap(clean_excel_string)  # <<< pulizia su ogni cella
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df_results.to_excel(writer, index=False, sheet_name="risultati")
+        df_clean.to_excel(writer, index=False, sheet_name="risultati")
     buf.seek(0)
     return buf
