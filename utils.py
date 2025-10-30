@@ -300,7 +300,7 @@ def classify_url(url: str, keywords, model, alpha_sem=0.7, alpha_kw=0.3,
 
     base = {
         "url": url,
-        "text": text[:500] + "..." if len(text) > 500 else text,  # Limita lunghezza testo salvato
+        "text": text,
         "pages_scanned": pages_scanned,
         "semantic_score": round(sscore, 3),
         "keyword_score": round(kscore, 3),
@@ -326,7 +326,12 @@ def clean_excel_string(s):
 
 def prepare_excel_download(df_results):
     """Prepara il file Excel per il download"""
-    df_clean = df_results.applymap(clean_excel_string)  # <<< pulizia su ogni cella
+    df_clean = df_results.copy()
+    # Tronca il testo al limite Excel (32.767 caratteri)
+    if 'text' in df_clean.columns:
+        df_clean['text'] = df_clean['text'].apply(
+            lambda x: (x[:32760] + "...") if isinstance(x, str) and len(x) > 32760 else x)
+    df_clean = df_clean.applymap(clean_excel_string)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_clean.to_excel(writer, index=False, sheet_name="risultati")
