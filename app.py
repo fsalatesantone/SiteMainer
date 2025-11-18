@@ -117,10 +117,29 @@ def main():
 
             for pos, (idx, row) in enumerate(df_url.iterrows(), start=1):
                 url = row["url"]
-                res = classify_url(url, keywords, model, alpha_sem=alpha_sem, alpha_kw=alpha_kw,
-                                   alpha_div=alpha_div, alpha_fre=alpha_fre,
-                                   max_pages=max_pages, max_depth=max_depth, sleep_time=sleep_time)
-
+                try:
+                    res = classify_url(url, keywords, model, alpha_sem=alpha_sem, alpha_kw=alpha_kw,
+                                    alpha_div=alpha_div, alpha_fre=alpha_fre,
+                                    max_pages=max_pages, max_depth=max_depth, sleep_time=sleep_time)
+                    error_msg = res.pop("error", "")
+                    res["error_message"] = error_msg
+                except Exception as e:
+                    # 🚨 Gestisce errori non previsti da classify_url
+                    error_msg = f"Eccezione inattesa: {type(e).__name__} - {e}"
+                    st.error(f"❌ Analisi fallita per {url}: {error_msg}")
+                    
+                    # Ritorna risultati di fallimento
+                    res = {
+                        "text": "EXCEPTION_FAILED",
+                        "pages_scanned": 0,
+                        "keyword_score": 0.0,
+                        "semantic_score": 0.0,
+                        "final_score": 0.0,
+                        "error_message": error_msg
+                    }
+                    # Inizializza i flag a 0 in caso di fallimento completo
+                    for k in keywords:
+                        res[f"flag_{k.lower().replace(' ', '_')}"] = 0
                 # aggiorna df
                 for k, v in res.items():
                     if k not in df_url.columns:
