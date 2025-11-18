@@ -1,6 +1,9 @@
 import os
-os.environ["STREAMLIT_SERVER_FILEWATCHERTYPE"] = "none"
-os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
+# os.environ["STREAMLIT_SERVER_FILEWATCHERTYPE"] = "none"
+# os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
+
+import torch
+torch.set_num_threads(1)  # Previene problemi di threading
 
 import re, math, requests, os, io, time
 from urllib.parse import urljoin, urlparse

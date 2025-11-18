@@ -1,2 +1,7 @@
 [server]
 folderWatchBlacklist = ["/home/adminuser/venv/lib/site-packages/torch"]
+fileWatcherType = "none"
+headless = true
+
+[runner]
+fastReruns = false
